@@ -25,8 +25,8 @@ def _get_json(name):
 def get(mongodb, collection):
     filter_ = _get_json('filter')
     projection = _get_json('projection')
-    skip = int(bottle.request.get('skip', '0'))
-    limit = int(bottle.request.get('limit', '100'))
+    skip = int(bottle.request.get('skip', 0))
+    limit = int(bottle.request.get('limit', 100))
     sort = _get_json('sort')
 
     cursor = mongodb[collection].find(
