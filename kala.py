@@ -17,7 +17,7 @@ bottle.install(MongoPlugin(
 
 
 def _get_json(name):
-    result = bottle.request.get(name)
+    result = bottle.request.query.get(name)
     return json.loads(result) if result else None
 
 
@@ -25,8 +25,8 @@ def _get_json(name):
 def get(mongodb, collection):
     filter_ = _get_json('filter')
     projection = _get_json('projection')
-    skip = int(bottle.request.get('skip', 0))
-    limit = int(bottle.request.get('limit', 100))
+    skip = int(bottle.request.query.get('skip', 0))
+    limit = int(bottle.request.query.get('limit', 100))
     sort = _get_json('sort')
 
     cursor = mongodb[collection].find(
