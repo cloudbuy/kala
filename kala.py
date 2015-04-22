@@ -28,6 +28,8 @@ def get(mongodb, collection):
     skip = int(bottle.request.query.get('skip', 0))
     limit = int(bottle.request.query.get('limit', 100))
     sort = _get_json('sort')
+    # Turns a JSON array of arrays to a list of tuples.
+    sort = [tuple(field) for field in sort] if sort else None
 
     cursor = mongodb[collection].find(
         filter=filter_, projection=projection, skip=skip, limit=limit,
