@@ -11,8 +11,8 @@ app = bottle.Bottle()
 app.config.load_config('settings.ini')
 
 bottle.install(MongoPlugin(
-    uri=app.config('mongodb.uri'),
-    db=app.config('mongodb.db'),
+    uri=app.config['mongodb.uri'],
+    db=app.config['mongodb.db'],
     json_mongo=True))
 
 
