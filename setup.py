@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='kala',
-    version='0.1dev',
+    version='0.1',
     packages=[''],
     url='https://github.com/cloudbuy/kala',
     license='MIT',
