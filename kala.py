@@ -37,5 +37,9 @@ def get(mongodb, collection):
     return {'results': [document for document in cursor]}
 
 
-if __name__ == '__main__':
+def main():
     app.run()
+
+
+if __name__ == '__main__':
+    main()
