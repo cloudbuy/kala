@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='kala',
@@ -13,5 +13,10 @@ setup(
         'bottle',
         'bottle_mongodb',
         'pymongo'
-    ]
+    ],
+    entry_points = {
+        'console_scripts': [
+            'kala = kala:main'
+        ]
+    }
 )
