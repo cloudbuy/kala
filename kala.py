@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import json
 
 import bottle
@@ -12,11 +13,11 @@ app.config.update({
     'mongodb.db': 'kala'
 })
 
-app.config.load_config('settings.ini')
+app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
 app.install(MongoPlugin(
-    uri=app.config['mongodb.uri'],
-    db=app.config['mongodb.db'],
+    uri=os.environ.get('KALA_MONGODB_URI', app.config['mongodb.uri']),
+    db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
 
 
