@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='kala',
-    version='0.1',
+    version='0.2',
     packages=[''],
     url='https://github.com/cloudbuy/kala',
     license='MIT',
@@ -14,7 +14,7 @@ setup(
         'bottle_mongodb',
         'pymongo'
     ],
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'kala = kala:main'
         ]

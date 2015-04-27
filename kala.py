@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import json
 
 import bottle
@@ -7,12 +8,16 @@ from bottle_mongo import MongoPlugin
 
 
 app = bottle.Bottle()
+app.config.update({
+    'mongodb.uri': 'mongodb://localhost:27017/',
+    'mongodb.db': 'kala'
+})
 
-app.config.load_config('settings.ini')
+app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
 app.install(MongoPlugin(
-    uri=app.config['mongodb.uri'],
-    db=app.config['mongodb.db'],
+    uri=os.environ.get('KALA_MONGODB_URI', app.config['mongodb.uri']),
+    db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
 
 
@@ -28,7 +33,9 @@ def get(mongodb, collection):
     skip = int(bottle.request.query.get('skip', 0))
     limit = int(bottle.request.query.get('limit', 100))
     sort = _get_json('sort')
-    # Turns a JSON array of arrays to a list of tuples.
+    # Turns a list of lists to a list of tuples.
+    # This is necessary because JSON has no concept of "tuple" but pymongo
+    # takes a list of tuples for the sort order.
     sort = [tuple(field) for field in sort] if sort else None
 
     cursor = mongodb[collection].find(
