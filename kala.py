@@ -33,7 +33,9 @@ def get(mongodb, collection):
     skip = int(bottle.request.query.get('skip', 0))
     limit = int(bottle.request.query.get('limit', 100))
     sort = _get_json('sort')
-    # Turns a JSON array of arrays to a list of tuples.
+    # Turns a list of lists to a list of tuples.
+    # This is necessary because JSON has no concept of "tuple" but pymongo
+    # takes a list of tuples for the sort order.
     sort = [tuple(field) for field in sort] if sort else None
 
     cursor = mongodb[collection].find(
