@@ -7,6 +7,10 @@ from bottle_mongo import MongoPlugin
 
 
 app = bottle.Bottle()
+app.config.update({
+    'mongodb.uri': 'mongodb://localhost:27017/',
+    'mongodb.db': 'kala'
+})
 
 app.config.load_config('settings.ini')
 
