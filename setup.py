@@ -14,7 +14,7 @@ setup(
         'bottle_mongodb',
         'pymongo'
     ],
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'kala = kala:main'
         ]
