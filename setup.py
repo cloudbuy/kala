@@ -1,5 +1,11 @@
 from setuptools import setup
 
+requires = [
+    'bottle',
+    'bottle_mongodb',
+    'pymongo'
+]
+
 setup(
     name='kala',
     version='0.2',
@@ -9,11 +15,7 @@ setup(
     author='Paul Etherton',
     author_email='paul@pjetherton.co.uk',
     description='Simple read-only REST API for mongoDB',
-    requires=[
-        'bottle',
-        'bottle_mongodb',
-        'pymongo'
-    ],
+    install_requires=requires,
     entry_points={
         'console_scripts': [
             'kala = kala:main'
