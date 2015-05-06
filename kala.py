@@ -43,6 +43,11 @@ def get(mongodb, collection):
         sort=sort
     )
 
+    distinct = bottle.request.query.get('distinct')
+
+    if distinct:
+        return {'values': cursor.distinct(distinct)}
+
     return {'results': [document for document in cursor]}
 
 
