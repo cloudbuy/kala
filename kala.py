@@ -38,7 +38,7 @@ def get(mongodb, collection):
     # takes a list of tuples for the sort order.
     sort = [tuple(field) for field in sort] if sort else None
 
-    results = mongodb[collection].find(
+    cursor = mongodb[collection].find(
         filter=filter_, projection=projection, skip=skip, limit=limit,
         sort=sort
     )
@@ -46,9 +46,9 @@ def get(mongodb, collection):
     distinct = bottle.request.query.get('distinct')
 
     if distinct:
-        return {'values': results.distinct(distinct)}
+        return {'values': cursor.distinct(distinct)}
 
-    return {'results': [document for document in results]}
+    return {'results': [document for document in cursor]}
 
 
 def main():
