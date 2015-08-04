@@ -28,10 +28,11 @@ def _get_json(name):
 def _filter_write(mongodb, dictionary, filter_json):
     if filter_json is None:
         return dictionary
-    object_id = mongodb['staging'].insert(dictionary)
-    cursor = mongodb['staging'].find(filter=filter_json)
+    staging = app.config.get('filter.staging', 'staging')
+    object_id = mongodb[staging].insert(dictionary)
+    cursor = mongodb[staging].find(filter=filter_json)
     documents = [document for document in cursor]
-    mongodb['staging'].remove({"_id":object_id}, "true")
+    mongodb[staging].remove({"_id":object_id}, "true")
     return documents
 
 
