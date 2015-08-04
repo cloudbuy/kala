@@ -25,14 +25,14 @@ def _get_json(name):
     return json.loads(result) if result else None
 
 
-def _filter_write(mongodb, dictionary):
+def _filter_write(mongodb, document):
     if app.config['filter.json'] is None:
-        return dictionary
+        return document
     staging = app.config.get('filter.staging', 'staging')
-    object_id = mongodb[staging].insert(dictionary)
+    object_id = mongodb[staging].insert(document)
     cursor = mongodb[staging].find(filter=app.config['filter.json'])
     # Delete from staging collection after cursor becomes a list otherwise, cursor will produce an empty list.
-    documents = [document for document in cursor]
+    documents = [doc for doc in cursor]
     mongodb[staging].remove({"_id": object_id}, "true")
     return documents
 
@@ -66,8 +66,10 @@ def _filter_read(var):
 
 @app.route('/aggregate/<collection>')
 def get_aggregate(mongodb, collection):
+    # Tom's thing will look at it with more detail when I can.
     pipeline = _get_json('pipeline')
-    pipeline = _filter_read(pipeline) if pipeline else pipeline
+    # Not sure on below, will probably need a new method.
+    # pipeline = _filter_read(pipeline) if pipeline else pipeline
     cursor = mongodb[collection].aggregate(pipeline=pipeline)
     return {'results': [document for document in cursor]}
 
