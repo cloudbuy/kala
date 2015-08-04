@@ -66,10 +66,7 @@ def _filter_read(var):
 
 @app.route('/aggregate/<collection>')
 def get_aggregate(mongodb, collection):
-    # Tom's thing will look at it with more detail when I can.
     pipeline = _get_json('pipeline')
-    # Not sure on below, will probably need a new method.
-    # pipeline = _filter_read(pipeline) if pipeline else pipeline
     cursor = mongodb[collection].aggregate(pipeline=pipeline)
     return {'results': [document for document in cursor]}
 
