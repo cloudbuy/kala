@@ -33,28 +33,34 @@ def _filter_write(mongodb, dictionary):
     cursor = mongodb[staging].find(filter=app.config['filter.json'])
     # Delete from staging collection after cursor becomes a list otherwise, cursor will produce an empty list.
     documents = [document for document in cursor]
-    mongodb[staging].remove({"_id":object_id}, "true")
+    mongodb[staging].remove({"_id": object_id}, "true")
     return documents
 
 
 def _filter_read(var):
+    """This is used to filter the JSON object.
+    """
     whitelist = app.config['filter.read']
     if whitelist is None:
         return var
+    # When var is a dictionary, deletes any keys which are not in the whitelist.
+    # Unless they are an operator, in which case we apply the filter to the value.
     if isinstance(var, dict):
         for key in list(var.keys()):
             if key.startswith('$'):
                 _filter_read(var[key])
             elif key not in whitelist:
                 del var[key]
+    # When var is a list, apply the filter on each item, thus returning a filtered list.
     elif isinstance(var, list):
         var[:] = [item for item in var if _filter_read(item)]
+    # When var is a tuple, return whether first element is in the whitelist
     elif isinstance(var, tuple):
         return var[0] in whitelist
+    # This is used for projection.
+    # Note that a JSON object can not contain null values.
     elif var is None:
-        var = dict((key,'1') for key in whitelist)
-    else:
-        return
+        var = dict((key, '1') for key in whitelist)
     return var
 
 
