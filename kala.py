@@ -6,7 +6,6 @@ import json
 import bottle
 from bottle_mongo import MongoPlugin
 
-
 app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
@@ -26,6 +25,20 @@ def _get_json(name):
     return json.loads(result) if result else None
 
 
+def _filter_write(dictionary, whitelist):
+    if whitelist is None:
+        return dictionary
+    filtered = dict((key, dictionary[key]) for key in whitelist if key in dictionary)
+    return filtered if filtered else None
+
+
+def _filter_read(dictionary, whitelist):
+    if whitelist is None:
+        return dictionary
+
+    return dictionary
+
+
 @app.route('/<collection>')
 def get(mongodb, collection):
     filter_ = _get_json('filter')
@@ -33,6 +46,14 @@ def get(mongodb, collection):
     skip = int(bottle.request.query.get('skip', 0))
     limit = int(bottle.request.query.get('limit', 100))
     sort = _get_json('sort')
+
+    # We use a whitelist read setting to filter what is allowed to be read from the collection.
+    # If the whitelist read setting is empty or non existent, then nothing is filtered.
+    if 'whitelist.read' in app.config:
+        filter_ = _filter_read(filter_)
+        projection = _filter_read(projection)
+        sort = _filter_read(sort)
+
     # Turns a list of lists to a list of tuples.
     # This is necessary because JSON has no concept of "tuple" but pymongo
     # takes a list of tuples for the sort order.
@@ -51,9 +72,27 @@ def get(mongodb, collection):
     return {'results': [document for document in cursor]}
 
 
+@app.route('/<collection>', method='POST')
+def post(mongodb, collection):
+    # We use a whitelist write setting to filter what is allowed to be written to the collection.
+    # If the whitelist write setting is empty, then nothing is filtered.
+    # If no whitelist write setting in configuration, then we are unable to write.
+    if 'whitelist.write' in app.config:
+        json_ = _filter_write(bottle.request.json, app.config['whitelist.write'])
+        if json_:
+            mongodb[collection].insert(json_)
+
+
 def main():
     app.run()
 
+
+if 'whitelist.write' in app.config:
+    app.config['whitelist.write'] = app.config['whitelist.write'].split(',') \
+        if app.config['whitelist.write'] else None
+if 'whitelist.read' in app.config:
+    app.config['whitelist.read'] = app.config['whitelist.read'].split(',') \
+        if app.config['whitelist.read'] else None
 
 if __name__ == '__main__':
     main()
