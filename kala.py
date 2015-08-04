@@ -25,11 +25,14 @@ def _get_json(name):
     return json.loads(result) if result else None
 
 
-def _filter_write(dictionary, whitelist):
-    if whitelist is None:
+def _filter_write(mongodb, dictionary, filter_json):
+    if filter_json is None:
         return dictionary
-    filtered = dict((key, dictionary[key]) for key in whitelist if key in dictionary)
-    return filtered if filtered else None
+    object_id = mongodb['staging'].insert(dictionary)
+    cursor = mongodb['staging'].find(filter=filter_json)
+    documents = [document for document in cursor]
+    mongodb['staging'].remove({"_id":object_id}, "true")
+    return documents
 
 
 def _filter_read(dictionary, whitelist):
@@ -74,12 +77,12 @@ def get(mongodb, collection):
 
 @app.route('/<collection>', method='POST')
 def post(mongodb, collection):
-    # We use a whitelist write setting to filter what is allowed to be written to the collection.
-    # If the whitelist write setting is empty, then nothing is filtered.
-    # If no whitelist write setting in configuration, then we are unable to write.
-    if 'whitelist.write' in app.config:
-        json_ = _filter_write(bottle.request.json, app.config['whitelist.write'])
-        if json_:
+    # We insert the document into a staging collection and then apply a filter JSON.
+    # If it returns a result, we can insert that into the actual collection.
+    # If no filter JSON document is defined in the configuration setting, then write access is disabled.
+    if 'filter.json' in app.config:
+        json_ = bottle.request.json
+        if _filter_write(mongodb, json_, app.config['filter.json']):
             mongodb[collection].insert(json_)
 
 
@@ -87,9 +90,9 @@ def main():
     app.run()
 
 
-if 'whitelist.write' in app.config:
-    app.config['whitelist.write'] = app.config['whitelist.write'].split(',') \
-        if app.config['whitelist.write'] else None
+if 'filter.json' in app.config:
+    with open(app.config['filter.json']) as data_file:
+        app.config['filter.json'] = json.load(data_file)
 if 'whitelist.read' in app.config:
     app.config['whitelist.read'] = app.config['whitelist.read'].split(',') \
         if app.config['whitelist.read'] else None
