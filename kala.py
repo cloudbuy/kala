@@ -38,8 +38,7 @@ def _filter_write(mongodb, document):
 
 
 def _filter_read(var):
-    """This is used to filter the JSON object.
-    """
+    """This is used to filter the JSON object."""
     whitelist = app.config['filter.read']
     if whitelist is None:
         return var
@@ -64,9 +63,32 @@ def _filter_read(var):
     return var
 
 
+def _filter_aggregate(list_):
+    """This is used to filter the aggregate JSON
+
+    Keyword arguments:
+    list_ -- The JSON should be a list of dictionaries.
+    """
+    # The idea is to insert a $project at the start of pipeline that only contains fields in the whitelist.
+    # If $projects exists at the start, then we strip any fields not in the whitelist.
+    # Once filtered, the user can do whatever they want and never touch sensitive data.
+    if '$project' in list_[0]:
+        list_[0] = _filter_read(list_[0]['$project'])
+    else:
+        project = {'$project': dict((field,"1") for field in app.config['filter.read'])}
+        list_ = [project] + list_
+    return list_
+
+
 @app.route('/aggregate/<collection>')
 def get_aggregate(mongodb, collection):
     pipeline = _get_json('pipeline')
+    # Should this go in the _filter_aggregate?
+    pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
+    # if 'filter.read' in app.config:
+        # pipeline = _filter_aggregate(pipeline) if pipeline else None
+    limit = int(bottle.request.query.get('limit', 100))
+    pipeline = pipeline + [{'$limit': limit}]
     cursor = mongodb[collection].aggregate(pipeline=pipeline)
     return {'results': [document for document in cursor]}
 
