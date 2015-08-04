@@ -73,9 +73,9 @@ def _filter_aggregate(list_):
     # If $projects exists at the start, then we strip any fields not in the whitelist.
     # Once filtered, the user can do whatever they want and never touch sensitive data.
     if '$project' in list_[0]:
-        list_[0] = _filter_read(list_[0]['$project'])
+        list_[0] = {'$project':_filter_read(list_[0]['$project'])}
     else:
-        project = {'$project': dict((field,"1") for field in app.config['filter.read'])}
+        project = {'$project': dict((field,1) for field in app.config['filter.read'])}
         list_ = [project] + list_
     return list_
 
@@ -84,9 +84,10 @@ def _filter_aggregate(list_):
 def get_aggregate(mongodb, collection):
     pipeline = _get_json('pipeline')
     # Should this go in the _filter_aggregate?
+    # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
-    # if 'filter.read' in app.config:
-        # pipeline = _filter_aggregate(pipeline) if pipeline else None
+    if 'filter.read' in app.config:
+        pipeline = _filter_aggregate(pipeline) if pipeline else None
     limit = int(bottle.request.query.get('limit', 100))
     pipeline = pipeline + [{'$limit': limit}]
     cursor = mongodb[collection].aggregate(pipeline=pipeline)
