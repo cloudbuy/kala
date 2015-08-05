@@ -1,3 +1,6 @@
 [mongodb]
 uri = mongodb://localhost:27017/
 db = kala
+[filter]
+json = filter.JSON
+read = _id,name,type
