@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import datetime
 import os
 import json
 
@@ -80,6 +81,21 @@ def _filter_aggregate(list_):
     return list_
 
 
+def _tryparse_json_datestring(document):
+    for k, v in document.items():
+        if isinstance(v, dict):
+            _tryparse_json_datestring(v)
+        elif isinstance(v, list):
+            for item in list:
+                _tryparse_json_datestring(item)
+        elif isinstance(v, (str, bytes)):
+            try:
+                document[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%fZ')
+            except ValueError:
+                pass
+    return document
+
+
 @app.route('/aggregate/<collection>')
 def get_aggregate(mongodb, collection):
     pipeline = _get_json('pipeline')
@@ -136,7 +152,8 @@ def post(mongodb, collection):
     # If it returns a result, we can insert that into the actual collection.
     # If no filter JSON document is defined in the configuration setting, then write access is disabled.
     if 'filter.json' in app.config:
-        json_ = bottle.request.json
+        # Any datetime string need to be converted to a datetime object.
+        json_ = _tryparse_json_datestring(bottle.request.json)
         if _filter_write(mongodb, json_):
             mongodb[collection].insert(json_)
 
