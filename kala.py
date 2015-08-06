@@ -7,10 +7,27 @@ import bottle
 from bottle_mongo import MongoPlugin
 
 
+CORS_HEADERS = {
+    'Authorization',
+    'Content-Type',
+    'Accept',
+    'Origin',
+    'User-Agent',
+    'DNT',
+    'Cache-Control',
+    'X-Mx-ReqToken',
+    'Keep-Alive',
+    'X-Request',
+    'X-Requested-With',
+    'If-Modified-Since'
+}
+
+
 app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
-    'mongodb.db': 'kala'
+    'mongodb.db': 'kala',
+    'cors.enable': False
 })
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
@@ -19,6 +36,14 @@ app.install(MongoPlugin(
     uri=os.environ.get('KALA_MONGODB_URI', app.config['mongodb.uri']),
     db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
+
+
+if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
+    @app.hook('after_request')
+    def add_cors_response_headers():
+        if bottle.request.method in ('GET', 'OPTIONS'):
+            bottle.response.set_header('Access-Control-Allow-Origin', '*')
+            bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
 
 
 def _get_json(name):
