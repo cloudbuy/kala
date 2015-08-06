@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
+import bson
 import datetime
 import os
 import json
+import uuid
 
 import bottle
 from bottle_mongo import MongoPlugin
@@ -28,7 +30,7 @@ app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
-    'cors.enable': False
+    'cors.enable': True
 })
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
@@ -42,9 +44,16 @@ app.install(MongoPlugin(
 if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
     @app.hook('after_request')
     def add_cors_response_headers():
-        if bottle.request.method in ('GET', 'OPTIONS'):
+        if bottle.request.method in ('GET', 'OPTIONS', 'POST'):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
+
+if 'filter.json' in app.config:
+    with open(app.config['filter.json']) as data_file:
+        app.config['filter.json'] = json.load(data_file)
+if 'filter.read' in app.config:
+    app.config['filter.read'] = app.config['filter.read'].split(',') \
+        if app.config['filter.read'] else None
 
 
 def _get_json(name):
@@ -107,22 +116,25 @@ def _filter_aggregate(list_):
     return list_
 
 
-def _tryparse_json_datestring(document):
+def _convert_to_BSON(document, type):
     for k, v in document.items():
         if isinstance(v, dict):
-            _tryparse_json_datestring(v)
+            _convert_to_BSON(v, type)
         elif isinstance(v, list):
             for item in list:
-                _tryparse_json_datestring(item)
+                _convert_to_BSON(item, type)
         elif isinstance(v, (str, bytes)):
             try:
-                document[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%fZ')
+                if type == 'ISODate':
+                    document[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%fZ')
+                elif type == 'UUID':
+                    document[k] = bson.Binary(uuid.UUID(v).bytes,4)
             except ValueError:
                 pass
     return document
 
 
-@app.route('/aggregate/<collection>')
+@app.route('/aggregate/<collection>', method=['GET', 'OPTIONS'])
 def get_aggregate(mongodb, collection):
     pipeline = _get_json('pipeline')
     # Should this go in the _filter_aggregate?
@@ -136,7 +148,7 @@ def get_aggregate(mongodb, collection):
     return {'results': [document for document in cursor]}
 
 
-@app.route('/<collection>')
+@app.route('/<collection>', method=['GET', 'OPTIONS'])
 def get(mongodb, collection):
     filter_ = _get_json('filter')
     projection = _get_json('projection')
@@ -178,22 +190,18 @@ def post(mongodb, collection):
     # If it returns a result, we can insert that into the actual collection.
     # If no filter JSON document is defined in the configuration setting, then write access is disabled.
     if 'filter.json' in app.config:
-        # Any datetime string need to be converted to a datetime object.
-        json_ = _tryparse_json_datestring(bottle.request.json)
+        # Need to convert BSON datatypes
+        json_ = _convert_to_BSON(bottle.request.json,'ISODate')
+        json_ = _convert_to_BSON(json_,'UUID')
         if _filter_write(mongodb, json_):
-            mongodb[collection].insert(json_)
+            object_id = mongodb[collection].insert(json_)
+            return { 'success': list(mongodb[collection].find({"_id": object_id})) }
+
 
 
 def main():
     app.run()
 
-
-if 'filter.json' in app.config:
-    with open(app.config['filter.json']) as data_file:
-        app.config['filter.json'] = json.load(data_file)
-if 'filter.read' in app.config:
-    app.config['filter.read'] = app.config['filter.read'].split(',') \
-        if app.config['filter.read'] else None
 
 if __name__ == '__main__':
     main()
