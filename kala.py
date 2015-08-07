@@ -9,7 +9,6 @@ import uuid
 import bottle
 from bottle_mongo import MongoPlugin
 
-
 CORS_HEADERS = {
     'Authorization',
     'Content-Type',
@@ -25,7 +24,6 @@ CORS_HEADERS = {
     'If-Modified-Since'
 }
 
-
 app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
@@ -39,7 +37,6 @@ app.install(MongoPlugin(
     uri=os.environ.get('KALA_MONGODB_URI', app.config['mongodb.uri']),
     db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
-
 
 if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
     @app.hook('after_request')
@@ -109,9 +106,9 @@ def _filter_aggregate(list_):
     # If $projects exists at the start, then we strip any fields not in the whitelist.
     # Once filtered, the user can do whatever they want and never touch sensitive data.
     if '$project' in list_[0]:
-        list_[0] = {'$project':_filter_read(list_[0]['$project'])}
+        list_[0] = {'$project': _filter_read(list_[0]['$project'])}
     else:
-        project = {'$project': dict((field,1) for field in app.config['filter.read'])}
+        project = {'$project': dict((field, 1) for field in app.config['filter.read'])}
         list_ = [project] + list_
     return list_
 
@@ -134,7 +131,7 @@ def _convert_object_type(document, type_):
                 if type_ == 'ISODate':
                     document[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%fZ')
                 elif type_ == 'UUID':
-                    document[k] = bson.Binary(uuid.UUID(v).bytes,4)
+                    document[k] = bson.Binary(uuid.UUID(v).bytes, 4)
             except ValueError:
                 pass
     return document
@@ -207,12 +204,11 @@ def post(mongodb, collection):
     # If no filter JSON document is defined in the configuration setting, then write access is disabled.
     if 'filter.json' in app.config:
         # Need to convert BSON datatypes
-        json_ = _convert_object_type(bottle.request.json,'ISODate')
-        json_ = _convert_object_type(json_,'UUID')
+        json_ = _convert_object_type(bottle.request.json, 'ISODate')
+        json_ = _convert_object_type(json_, 'UUID')
         if _filter_write(mongodb, json_):
             object_id = mongodb[collection].insert(json_)
-            return { 'success': list(mongodb[collection].find({"_id": object_id})) }
-
+            return {'success': list(mongodb[collection].find({"_id": object_id}))}
 
 
 def main():
