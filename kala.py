@@ -161,6 +161,8 @@ def get(mongodb, collection):
     # takes a list of tuples for the sort order.
     sort = [tuple(field) for field in sort] if sort else None
 
+    filter_ = _convert_to_BSON(_convert_to_BSON(filter_, 'ISODate'), 'UUID') if filter_ else None
+
     # We use a whitelist read setting to filter what is allowed to be read from the collection.
     # If the whitelist read setting is empty or non existent, then nothing is filtered.
     if 'filter.read' in app.config:
