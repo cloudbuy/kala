@@ -116,21 +116,34 @@ def _filter_aggregate(list_):
     return list_
 
 
-def _convert_to_BSON(document, type):
+def _convert_object_type(document, type_):
+    '''This is used to convert strings to the correct object type
+
+    :param document:
+    document -- The json
+    type_ -- The target object type
+    '''
     for k, v in document.items():
         if isinstance(v, dict):
-            _convert_to_BSON(v, type)
+            _convert_object_type(v, type_)
         elif isinstance(v, list):
             for item in list:
-                _convert_to_BSON(item, type)
+                _convert_object_type(item, type_)
         elif isinstance(v, (str, bytes)):
             try:
-                if type == 'ISODate':
+                if type_ == 'ISODate':
                     document[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%fZ')
-                elif type == 'UUID':
+                elif type_ == 'UUID':
                     document[k] = bson.Binary(uuid.UUID(v).bytes,4)
             except ValueError:
                 pass
+    return document
+
+
+def _convert_object(document):
+    # Wrapper for _convert_object_type()
+    document = _convert_object_type(document, 'ISODate')
+    document = _convert_object_type(document, 'UUID')
     return document
 
 
@@ -140,6 +153,7 @@ def get_aggregate(mongodb, collection):
     # Should this go in the _filter_aggregate?
     # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
+    filter_ = _convert_object(pipeline) if pipeline else None
     if 'filter.read' in app.config:
         pipeline = _filter_aggregate(pipeline) if pipeline else None
     limit = int(bottle.request.query.get('limit', 100))
@@ -161,7 +175,7 @@ def get(mongodb, collection):
     # takes a list of tuples for the sort order.
     sort = [tuple(field) for field in sort] if sort else None
 
-    filter_ = _convert_to_BSON(_convert_to_BSON(filter_, 'ISODate'), 'UUID') if filter_ else None
+    filter_ = _convert_object(filter_) if filter_ else None
 
     # We use a whitelist read setting to filter what is allowed to be read from the collection.
     # If the whitelist read setting is empty or non existent, then nothing is filtered.
@@ -193,8 +207,8 @@ def post(mongodb, collection):
     # If no filter JSON document is defined in the configuration setting, then write access is disabled.
     if 'filter.json' in app.config:
         # Need to convert BSON datatypes
-        json_ = _convert_to_BSON(bottle.request.json,'ISODate')
-        json_ = _convert_to_BSON(json_,'UUID')
+        json_ = _convert_object_type(bottle.request.json,'ISODate')
+        json_ = _convert_object_type(json_,'UUID')
         if _filter_write(mongodb, json_):
             object_id = mongodb[collection].insert(json_)
             return { 'success': list(mongodb[collection].find({"_id": object_id})) }
