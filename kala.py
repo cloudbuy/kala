@@ -153,7 +153,7 @@ def get_aggregate(mongodb, collection):
     # Should this go in the _filter_aggregate?
     # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
-    filter_ = _convert_object(pipeline) if pipeline else None
+    pipeline = _convert_object(pipeline) if pipeline else None
     if 'filter.read' in app.config:
         pipeline = _filter_aggregate(pipeline) if pipeline else None
     limit = int(bottle.request.query.get('limit', 100))
