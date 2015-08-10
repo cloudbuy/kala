@@ -46,12 +46,17 @@ if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
 
+if os.environ.get('KALA_FILTER_JSON'):
+    app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON')
+
+if os.environ.get('KALA_FILTER_READ'):
+    app.config['filter.read'] = os.environ.get('KALA_FILTER_READ')
+
 if 'filter.json' in app.config:
     with open(app.config['filter.json']) as data_file:
         app.config['filter.json'] = json.load(data_file)
 if 'filter.read' in app.config:
-    app.config['filter.read'] = app.config['filter.read'].split(',') \
-        if app.config['filter.read'] else None
+    app.config['filter.read'] = app.config['filter.read'].split(',')
 
 
 def _get_json(name):
@@ -182,7 +187,7 @@ def get(mongodb, collection):
 
     # We use a whitelist read setting to filter what is allowed to be read from the collection.
     # If the whitelist read setting is empty or non existent, then nothing is filtered.
-    if os.environ.get('KALA_FILTER_READ') or 'filter.read' in app.config:
+    if 'filter.read' in app.config:
         filter_ = _filter_read(filter_) if filter_ else None
         # Filter must be applied to projection, this is to prevent unrestricted reads.
         # If it is empty, we fill it with only whitelisted values.
