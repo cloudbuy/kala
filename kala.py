@@ -70,8 +70,8 @@ def _filter_write(mongodb, document):
     cursor = mongodb[staging].find(filter=filter_json)
     # Delete from staging collection after cursor becomes a list, otherwise cursor will produce an empty list.
     documents = [doc for doc in cursor]
-    mongodb[staging].remove({"_id": object_id}, "true")
-    return documents
+    mongodb[staging].remove({'_id': object_id}, 'true')
+    return any(doc['_id'] == object_id for doc in documents)
 
 
 def _filter_read(document):
@@ -132,7 +132,7 @@ def _convert_object_type(document, type_):
             if type_ == 'ISODate':
                 return datetime.datetime.strptime(document, '%Y-%m-%dT%H:%M:%S.%fZ')
             elif type_ == 'UUID':
-                return uuid.UUID(document)
+                return bson.Binary(uuid.UUID(document).bytes, 4)
         except ValueError:
             # We pass as we don't need to do anything with the value.
             pass
