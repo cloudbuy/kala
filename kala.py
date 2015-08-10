@@ -153,55 +153,57 @@ def _convert_object(document):
 
 @app.route('/aggregate/<collection>', method=['GET'])
 def get_aggregate(mongodb, collection):
-    pipeline = _get_json('pipeline')
-    # Should this go in the _filter_aggregate?
-    # It's also probably overkill, since $out must be the last item in the pipeline.
-    pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
-    if 'filter.read' in app.config:
-        pipeline = _filter_aggregate(pipeline) if pipeline else None
-    pipeline = _convert_object(pipeline) if pipeline else None
-    limit = int(bottle.request.query.get('limit', 100))
-    pipeline = pipeline + [{'$limit': limit}] if pipeline else None
-    cursor = mongodb[collection].aggregate(pipeline=pipeline)
-    return {'results': [document for document in cursor]}
+    if bottle.request.method == 'GET':
+        pipeline = _get_json('pipeline')
+        # Should this go in the _filter_aggregate?
+        # It's also probably overkill, since $out must be the last item in the pipeline.
+        pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
+        if 'filter.read' in app.config:
+            pipeline = _filter_aggregate(pipeline) if pipeline else None
+        pipeline = _convert_object(pipeline) if pipeline else None
+        limit = int(bottle.request.query.get('limit', 100))
+        pipeline = pipeline + [{'$limit': limit}] if pipeline else None
+        cursor = mongodb[collection].aggregate(pipeline=pipeline)
+        return {'results': [document for document in cursor]}
 
 
 @app.route('/<collection>', method=['GET'])
 def get(mongodb, collection):
-    filter_ = _get_json('filter')
-    projection = _get_json('projection')
-    skip = int(bottle.request.query.get('skip', 0))
-    limit = int(bottle.request.query.get('limit', 100))
-    sort = _get_json('sort')
+    if bottle.request.method == 'GET':
+        filter_ = _get_json('filter')
+        projection = _get_json('projection')
+        skip = int(bottle.request.query.get('skip', 0))
+        limit = int(bottle.request.query.get('limit', 100))
+        sort = _get_json('sort')
 
-    # Turns a list of lists to a list of tuples.
-    # This is necessary because JSON has no concept of "tuple" but pymongo
-    # takes a list of tuples for the sort order.
-    sort = [tuple(field) for field in sort] if sort else None
+        # Turns a list of lists to a list of tuples.
+        # This is necessary because JSON has no concept of "tuple" but pymongo
+        # takes a list of tuples for the sort order.
+        sort = [tuple(field) for field in sort] if sort else None
 
-    filter_ = _convert_object(filter_) if filter_ else None
+        filter_ = _convert_object(filter_) if filter_ else None
 
-    # We use a whitelist read setting to filter what is allowed to be read from the collection.
-    # If the whitelist read setting is empty or non existent, then nothing is filtered.
-    if os.environ.get('KALA_FILTER_READ') or 'filter.read' in app.config:
-        filter_ = _filter_read(filter_) if filter_ else None
-        # Filter must be applied to projection, this is to prevent unrestricted reads.
-        # If it is empty, we fill it with only whitelisted values.
-        # Else we remove values which are not whitelisted.
-        projection = _filter_read(projection)
-        sort = _filter_read(sort) if sort else None
+        # We use a whitelist read setting to filter what is allowed to be read from the collection.
+        # If the whitelist read setting is empty or non existent, then nothing is filtered.
+        if os.environ.get('KALA_FILTER_READ') or 'filter.read' in app.config:
+            filter_ = _filter_read(filter_) if filter_ else None
+            # Filter must be applied to projection, this is to prevent unrestricted reads.
+            # If it is empty, we fill it with only whitelisted values.
+            # Else we remove values which are not whitelisted.
+            projection = _filter_read(projection)
+            sort = _filter_read(sort) if sort else None
 
-    cursor = mongodb[collection].find(
-        filter=filter_, projection=projection, skip=skip, limit=limit,
-        sort=sort
-    )
+        cursor = mongodb[collection].find(
+            filter=filter_, projection=projection, skip=skip, limit=limit,
+            sort=sort
+        )
 
-    distinct = bottle.request.query.get('distinct')
+        distinct = bottle.request.query.get('distinct')
 
-    if distinct:
-        return {'values': cursor.distinct(distinct)}
+        if distinct:
+            return {'values': cursor.distinct(distinct)}
 
-    return {'results': [document for document in cursor]}
+        return {'results': [document for document in cursor]}
 
 
 @app.route('/<collection>', method=['POST'])
@@ -209,12 +211,13 @@ def post(mongodb, collection):
     # We insert the document into a staging collection and then apply a filter JSON.
     # If it returns a result, we can insert that into the actual collection.
     # If no filter JSON document is defined in the configuration setting, then write access is disabled. (It will throw)
-    if os.environ.get('KALA_FILTER_JSON') or 'filter.json' in app.config:
-        # Need to convert BSON datatypes
-        json_ = _convert_object(bottle.request.json)
-        if _filter_write(mongodb, json_):
-            object_id = mongodb[collection].insert(json_)
-            return {'success': list(mongodb[collection].find({"_id": object_id}))}
+    if bottle.request.method == 'POST':
+        if os.environ.get('KALA_FILTER_JSON') or 'filter.json' in app.config:
+            # Need to convert BSON datatypes
+            json_ = _convert_object(bottle.request.json)
+            if _filter_write(mongodb, json_):
+                object_id = mongodb[collection].insert(json_)
+                return {'success': list(mongodb[collection].find({"_id": object_id}))}
 
 
 def main():
