@@ -84,8 +84,8 @@ def _filter_read(document):
     # When document is a dictionary, deletes any keys which are not in the whitelist.
     # Unless they are an operator, in which case we apply the filter to the value.
     if isinstance(document, dict):
-        document = dict((key, value) for (key, value) in document if key not in whitelist)
-        for key in list(document.keys()):
+        document = dict((key, value) for (key, value) in document.items() if key not in whitelist)
+        for key in document.keys():
             if key.startswith('$'):
                 _filter_read(document[key])
     # When document is a list, apply the filter on each item, thus returning a filtered list.
