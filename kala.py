@@ -127,7 +127,7 @@ def _convert_object_type(document, type_):
         for k, v in document.items():
             document[k] = _convert_object_type(v, type_)
     if isinstance(document, list):
-        document = filter(_convert_object_type, type_)
+        document = [_convert_object_type(item, type_) for item in document]
     elif isinstance(document, (str, bytes)):
         try:
             if type_ == 'ISODate':
