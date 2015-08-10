@@ -84,11 +84,10 @@ def _filter_read(document):
     # When document is a dictionary, deletes any keys which are not in the whitelist.
     # Unless they are an operator, in which case we apply the filter to the value.
     if isinstance(document, dict):
+        document = dict((key, value) for (key, value) in document if key not in whitelist)
         for key in list(document.keys()):
             if key.startswith('$'):
                 _filter_read(document[key])
-            elif key not in whitelist:
-                del document[key]
     # When document is a list, apply the filter on each item, thus returning a filtered list.
     elif isinstance(document, list):
         document = [item for item in document if _filter_read(item)]
@@ -133,7 +132,7 @@ def _convert_object_type(document, type_):
             if type_ == 'ISODate':
                 return datetime.datetime.strptime(document, '%Y-%m-%dT%H:%M:%S.%fZ')
             elif type_ == 'UUID':
-                return bson.Binary(uuid.UUID(document).bytes, 4)
+                return uuid.UUID(document)
         except ValueError:
             # We pass as we don't need to do anything with the value.
             pass
