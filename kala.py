@@ -52,6 +52,8 @@ if os.environ.get('KALA_FILTER_JSON'):
 if os.environ.get('KALA_FILTER_READ'):
     app.config['filter.read'] = os.environ.get('KALA_FILTER_READ')
 
+app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
+
 if 'filter.json' in app.config:
     with open(app.config['filter.json']) as data_file:
         app.config['filter.json'] = json.load(data_file)
@@ -67,15 +69,13 @@ def _get_json(name):
 def _filter_write(mongodb, document):
     # This will throw if setting isn't found in config.
     # Expected as your filter won't work without filter JSON path.
-    filter_json = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
-    if filter_json is None:
+    if app.config['filter.json'] is None:
         return document
-    staging = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
-    object_id = mongodb[staging].insert(document)
-    cursor = mongodb[staging].find(filter=filter_json)
+    object_id = mongodb[app.config['filter.staging']].insert(document)
+    cursor = mongodb[app.config['filter.staging']].find(filter=app.config['filter.json'])
     # Delete from staging collection after cursor becomes a list, otherwise cursor will produce an empty list.
     documents = [doc for doc in cursor]
-    mongodb[staging].remove({'_id': object_id}, 'true')
+    mongodb[app.config['filter.staging']].remove({'_id': object_id}, 'true')
     return any(doc['_id'] == object_id for doc in documents)
 
 
