@@ -139,7 +139,7 @@ def _convert_object_type(document, type_):
             if type_ == 'ISODate':
                 return datetime.datetime.strptime(document, '%Y-%m-%dT%H:%M:%S.%fZ')
             elif type_ == 'UUID':
-                return bson.Binary(uuid.UUID(document).bytes, 4)
+                return uuid.UUID(document)
         except ValueError:
             # We pass as we don't need to do anything with the value.
             pass
