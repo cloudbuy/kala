@@ -1,11 +1,11 @@
 # Kala
-Simple read-only REST API for mongoDB.
+Simple REST API for mongoDB.
 
 ## FAQs
 
 ### What is this?
 
-A very simple way of sticking a read only REST API on a single mongoDB database.  Useful, for example, for exposing some data where you want to manage that data through a separate interface or background process.
+A very simple way of sticking a REST API on a single mongoDB database.  Useful, for example, for exposing some data where you want to manage that data through a separate interface or background process.
 
 ### How do I use it?
 
