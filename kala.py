@@ -29,7 +29,11 @@ app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
     'cors.enable': False,
-    'filter.staging': 'staging'
+    'filter.read': False,
+    'filter.write': False,
+    'filter.staging': 'staging',
+    'filter.fields': '_id',
+    'filter.json': 'filter.JSON'
 })
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
@@ -46,19 +50,21 @@ if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
 
-if os.environ.get('KALA_FILTER_JSON'):
-    app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON')
+if os.environ.get('KALA_FILTER_WRITE'):
+    app.config['filter.write'] = os.environ.get('KALA_FILTER_WRITE')
+    app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
+    app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
 
 if os.environ.get('KALA_FILTER_READ'):
     app.config['filter.read'] = os.environ.get('KALA_FILTER_READ')
+    app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
 
-app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
 
-if 'filter.json' in app.config:
+if app.confg['filter.write']:
     with open(app.config['filter.json']) as data_file:
         app.config['filter.json'] = json.load(data_file)
-if 'filter.read' in app.config:
-    app.config['filter.read'] = app.config['filter.read'].split(',')
+if app.config['filter.read']:
+    app.config['filter.fields'] = app.config['filter.fields'].split(',')
 
 
 def _get_json(name):
@@ -67,8 +73,6 @@ def _get_json(name):
 
 
 def _filter_write(mongodb, document):
-    # This will throw if setting isn't found in config.
-    # Expected as your filter won't work without filter JSON path.
     if app.config['filter.json'] is None:
         return document
     object_id = mongodb[app.config['filter.staging']].insert(document)
@@ -81,9 +85,7 @@ def _filter_write(mongodb, document):
 
 def _filter_read(document):
     """This is used to filter the JSON object."""
-    # This will throw if setting isn't found in config.
-    # Expected as without setting you have nothing to filter.
-    whitelist = app.config['filter.read']
+    whitelist = app.config['filter.fields']
     if whitelist is None:
         return document
     # When document is a dictionary, deletes any keys which are not in the whitelist.
@@ -115,7 +117,7 @@ def _filter_aggregate(list_):
     """
     # The idea is to insert a $project at the start of pipeline that only contains fields in the whitelist.
     # Once filtered, the user can do whatever they want and never touch sensitive data.
-    project = {'$project': dict((field, 1) for field in app.config['filter.read'])}
+    project = {'$project': dict((field, 1) for field in app.config['filter.fields'])}
     list_ = [project] + list_
     return list_
 
@@ -161,7 +163,7 @@ def get_aggregate(mongodb, collection):
     # Should this go in the _filter_aggregate?
     # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
-    if 'filter.read' in app.config:
+    if app.config['filter.read']:
         pipeline = _filter_aggregate(pipeline) if pipeline else None
     pipeline = _convert_object(pipeline) if pipeline else None
     limit = int(bottle.request.query.get('limit', 100))
@@ -187,7 +189,7 @@ def get(mongodb, collection):
 
     # We use a whitelist read setting to filter what is allowed to be read from the collection.
     # If the whitelist read setting is empty or non existent, then nothing is filtered.
-    if 'filter.read' in app.config:
+    if app.config['filter.read']:
         filter_ = _filter_read(filter_) if filter_ else None
         # Filter must be applied to projection, this is to prevent unrestricted reads.
         # If it is empty, we fill it with only whitelisted values.
@@ -212,8 +214,7 @@ def get(mongodb, collection):
 def post(mongodb, collection):
     # We insert the document into a staging collection and then apply a filter JSON.
     # If it returns a result, we can insert that into the actual collection.
-    # If no filter JSON document is defined in the configuration setting, then write access is disabled. (It will throw)
-    if 'filter.json' in app.config:
+    if app.config['filter.write']:
         # Need to convert BSON datatypes
         json_ = _convert_object(bottle.request.json)
         if _filter_write(mongodb, json_):
