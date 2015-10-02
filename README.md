@@ -11,6 +11,12 @@ A very simple way of sticking a read only REST API on a single mongoDB database.
 
 It's just a bottle app, so you can deploy it the same way you would any bottle app.  You'll also need to set the mongoDB connection URI and the name of the target database in the configuration.  An example configuration is included in the repository.  It is also possible to use environment variables to configure Kala, the key variables are `KALA_MONGODB_URI`, `KALA_MONGODB_DB` and `KALA_CONFIGFILE`.  If an environment variable is present its value will be used over any supplied in the configuration file.
 
+### What if I want to restrict access to certain data?
+
+To restrict data on what can be read, you just need enable filtering for read and set what fields you want to allow. The environment variables for this are `KALA_FILTER_READ` and `KALA_FILTER_FIELDS`.
+
+To restrict data on what can be written, you need to enable filtering for writing and provide a filter JSON document as well as a staging table for the filter document to apply to. Environment variables for this are `KALA_FILTER_WRITE`, `KALA_FILTER_JSON`, and `KALA_FILTER_STAGING`.
+
 ### Why wouldn't I just use SleepyMongoose? (https://github.com/10gen-labs/sleepy.mongoose/wiki)
 
 You probably should, if you want a REST API to enable full CRUD against a mongoDB server.  As far as I can tell there's no way to lock sleepy.mongoose down so as to only allow reads and only allow a particular database, which is what this is designed to do.
