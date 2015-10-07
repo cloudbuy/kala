@@ -1,0 +1,10 @@
+{
+  "$and": [
+    {
+      "name": {"$exists": "true"}
+    },
+    {
+      "country": {"$in": ["UK","US"]}
+    }
+  ]
+}

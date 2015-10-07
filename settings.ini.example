@@ -1,3 +1,9 @@
 [mongodb]
 uri = mongodb://localhost:27017/
 db = kala
+[filter]
+write = True
+read = True
+json = filter.JSON
+read = _id
+staging = staging
