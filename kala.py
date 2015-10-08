@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import bson
 import datetime
 import os
 import json
@@ -8,6 +7,7 @@ import uuid
 
 import bottle
 from bottle_mongo import MongoPlugin
+
 
 CORS_HEADERS = {
     'Authorization',
@@ -24,24 +24,43 @@ CORS_HEADERS = {
     'If-Modified-Since'
 }
 
+
 app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
     'cors.enable': False,
-    'filter.read': False,
+    'filter.read': True,
     'filter.write': False,
     'filter.staging': 'staging',
-    'filter.fields': '_id',
+    'filter.fields': ['_id'],
     'filter.json': 'filter.JSON'
 })
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
+if os.environ.get('KALA_FILTER_WRITE'):
+    app.config['filter.write'] = True
+    app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
+    app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
+
+if os.environ.get('KALA_FILTER_READ'):
+    app.config['filter.read'] = True
+    app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
+
+if app.config['filter.write'] == 'True':
+    with open(app.config['filter.json'], 'r') as data_file:
+        app.config['filter.json'] = json.load(data_file)
+
+if app.config['filter.fields'] and isinstance(app.config['filter.fields'], str):
+    app.config['filter.fields'] = app.config['filter.fields'].split(',')
+
+
 app.install(MongoPlugin(
     uri=os.environ.get('KALA_MONGODB_URI', app.config['mongodb.uri']),
     db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
+
 
 if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
     @app.hook('after_request')
@@ -49,22 +68,6 @@ if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
         if bottle.request.method in ('GET', 'OPTIONS', 'POST'):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
-
-if os.environ.get('KALA_FILTER_WRITE'):
-    app.config['filter.write'] = os.environ.get('KALA_FILTER_WRITE')
-    app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
-    app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
-
-if os.environ.get('KALA_FILTER_READ'):
-    app.config['filter.read'] = os.environ.get('KALA_FILTER_READ')
-    app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
-
-
-if app.confg['filter.write']:
-    with open(app.config['filter.json']) as data_file:
-        app.config['filter.json'] = json.load(data_file)
-if app.config['filter.read']:
-    app.config['filter.fields'] = app.config['filter.fields'].split(',')
 
 
 def _get_json(name):
@@ -78,7 +81,7 @@ def _filter_write(mongodb, document):
     object_id = mongodb[app.config['filter.staging']].insert(document)
     cursor = mongodb[app.config['filter.staging']].find(filter=app.config['filter.json'])
     # Delete from staging collection after cursor becomes a list, otherwise cursor will produce an empty list.
-    documents = [doc for doc in cursor]
+    documents = list(cursor)
     mongodb[app.config['filter.staging']].remove({'_id': object_id}, 'true')
     return any(doc['_id'] == object_id for doc in documents)
 
@@ -88,16 +91,16 @@ def _filter_read(document):
     whitelist = app.config['filter.fields']
     if whitelist is None:
         return document
-    # When document is a dictionary, deletes any keys which are not in the whitelist.
-    # Unless they are an operator, in which case we apply the filter to the value.
+    # When document is a dictionary, delete any keys which are not in the
+    # whitelist, unless they are an operator, in which case we apply the filter to the value.
     if isinstance(document, dict):
-        document = dict((key, value) for (key, value) in document.items() if key not in whitelist)
+        document = dict((key, value) for (key, value) in document.items() if key in whitelist or key.startswith('$'))
         for key in document.keys():
             if key.startswith('$'):
-                _filter_read(document[key])
+                document[key] = _filter_read(document[key])
     # When document is a list, apply the filter on each item, thus returning a filtered list.
     elif isinstance(document, list):
-        document = [item for item in document if _filter_read(item)]
+        document = [_filter_read(item) for item in document]
     # When document is a tuple, return whether first element is in the whitelist.
     # This is used for sort
     elif isinstance(document, tuple):
