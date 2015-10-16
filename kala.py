@@ -8,6 +8,7 @@ import uuid
 import bottle
 from bottle_mongo import MongoPlugin
 
+from enableCORS import EnableCors
 
 CORS_HEADERS = {
     'Authorization',
@@ -63,11 +64,7 @@ app.install(MongoPlugin(
 
 
 if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
-    @app.hook('after_request')
-    def add_cors_response_headers():
-        if bottle.request.method in ('GET', 'OPTIONS', 'POST'):
-            bottle.response.set_header('Access-Control-Allow-Origin', '*')
-            bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
+    app.install(EnableCors())
 
 
 def _get_json(name):
@@ -213,7 +210,7 @@ def get(mongodb, collection):
     return {'results': [document for document in cursor]}
 
 
-@app.route('/<collection>', method=['POST'])
+@app.route('/<collection>', method=['POST', 'OPTIONS'])
 def post(mongodb, collection):
     # We insert the document into a staging collection and then apply a filter JSON.
     # If it returns a result, we can insert that into the actual collection.
