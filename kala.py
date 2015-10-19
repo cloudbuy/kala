@@ -8,8 +8,6 @@ import uuid
 import bottle
 from bottle_mongo import MongoPlugin
 
-from enableCORS import EnableCors
-
 CORS_HEADERS = {
     'Authorization',
     'Content-Type',
@@ -24,6 +22,28 @@ CORS_HEADERS = {
     'X-Requested-With',
     'If-Modified-Since'
 }
+
+
+# Code from stackoverflow.com
+# Question at http://stackoverflow.com/questions/17262170/bottle-py-enabling-cors-for-jquery-ajax-requests
+# Thanks to asker http://stackoverflow.com/users/552894/joern
+# Thanks to answerer http://stackoverflow.com/users/593047/ron-rothman
+class EnableCors(object):
+    name = 'enable_cors'
+    api = 2
+
+    def apply(self, fn, context):
+        def _enable_cors(*args, **kwargs):
+            # set CORS headers
+            bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+            bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
+            bottle.response.headers['Access-Control-Allow-Headers'] = ",".join(CORS_HEADERS)
+
+            if bottle.request.method != 'OPTIONS':
+                # actual request; reply with the actual response
+                return fn(*args, **kwargs)
+
+        return _enable_cors
 
 
 app = bottle.Bottle()
