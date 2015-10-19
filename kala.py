@@ -82,8 +82,11 @@ app.install(MongoPlugin(
     db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
 
+if os.environ.get('KALA_CORS_ENABLE'):
+    app.config['cors.enable'] = True
 
-if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
+
+if app.config['cors.enable']:
     app.install(EnableCors())
 
 
@@ -232,6 +235,9 @@ def get(mongodb, collection):
 
 @app.route('/<collection>', method=['POST', 'OPTIONS'])
 def post(mongodb, collection):
+    if not app.config['cors.enable']:
+        bottle.abort(405, "Method is not supported")
+
     # We insert the document into a staging collection and then apply a filter JSON.
     # If it returns a result, we can insert that into the actual collection.
     if app.config['filter.write']:
