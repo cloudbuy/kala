@@ -235,7 +235,7 @@ def get(mongodb, collection):
 
 @app.route('/<collection>', method=['POST', 'OPTIONS'])
 def post(mongodb, collection):
-    if not app.config['cors.enable']:
+    if bottle.request.method == 'OPTIONS' and not app.config['cors.enable']:
         bottle.abort(405, "Method is not supported")
 
     # We insert the document into a staging collection and then apply a filter JSON.
