@@ -8,7 +8,6 @@ import uuid
 import bottle
 from bottle_mongo import MongoPlugin
 
-
 CORS_HEADERS = {
     'Authorization',
     'Content-Type',
@@ -23,6 +22,28 @@ CORS_HEADERS = {
     'X-Requested-With',
     'If-Modified-Since'
 }
+
+
+# Code from stackoverflow.com
+# Question at http://stackoverflow.com/questions/17262170/bottle-py-enabling-cors-for-jquery-ajax-requests
+# Thanks to asker http://stackoverflow.com/users/552894/joern
+# Thanks to answerer http://stackoverflow.com/users/593047/ron-rothman
+class EnableCors(object):
+    name = 'enable_cors'
+    api = 2
+
+    def apply(self, fn, context):
+        def _enable_cors(*args, **kwargs):
+            # set CORS headers
+            bottle.response.headers['Access-Control-Allow-Origin'] = '*'
+            bottle.response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
+            bottle.response.headers['Access-Control-Allow-Headers'] = ",".join(CORS_HEADERS)
+
+            if bottle.request.method != 'OPTIONS':
+                # actual request; reply with the actual response
+                return fn(*args, **kwargs)
+
+        return _enable_cors
 
 
 app = bottle.Bottle()
@@ -61,13 +82,12 @@ app.install(MongoPlugin(
     db=os.environ.get('KALA_MONGODB_DB', app.config['mongodb.db']),
     json_mongo=True))
 
+if os.environ.get('KALA_CORS_ENABLE'):
+    app.config['cors.enable'] = True
 
-if os.environ.get('KALA_CORS_ENABLE', app.config['cors.enable']):
-    @app.hook('after_request')
-    def add_cors_response_headers():
-        if bottle.request.method in ('GET', 'OPTIONS', 'POST'):
-            bottle.response.set_header('Access-Control-Allow-Origin', '*')
-            bottle.response.set_header('Access-Control-Allow-Headers', ','.join(CORS_HEADERS))
+
+if app.config['cors.enable']:
+    app.install(EnableCors())
 
 
 def _get_json(name):
@@ -213,8 +233,11 @@ def get(mongodb, collection):
     return {'results': [document for document in cursor]}
 
 
-@app.route('/<collection>', method=['POST'])
+@app.route('/<collection>', method=['POST', 'OPTIONS'])
 def post(mongodb, collection):
+    if bottle.request.method == 'OPTIONS' and not app.config['cors.enable']:
+        bottle.abort(405, "Method is not supported")
+
     # We insert the document into a staging collection and then apply a filter JSON.
     # If it returns a result, we can insert that into the actual collection.
     if app.config['filter.write']:
