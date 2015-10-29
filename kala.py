@@ -279,7 +279,7 @@ def post(mongodb, collection):
                          "This kala instance is configured with a write filter, "
                          "and the provided document did not satisfy it. "
                          "The document must be selectable by: " +
-                         app.config['filter.write'])
+                         json.dumps(app.config['filter.json']))
     else:
         bottle.abort(403, "This kala instance is not configured to allow writing.")
 
