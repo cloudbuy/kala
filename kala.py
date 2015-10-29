@@ -90,9 +90,9 @@ if app.config['cors.enable']:
     app.install(EnableCors())
 
 
-def _get_json(name):
+def _get_json(name, default=None):
     result = bottle.request.query.get(name)
-    return json.loads(result) if result else None
+    return json.loads(result) if result else default
 
 
 def _filter_write(mongodb, document):
@@ -182,7 +182,14 @@ def _convert_object(document):
 
 @app.route('/aggregate/<collection>', method=['GET'])
 def get_aggregate(mongodb, collection):
-    pipeline = _get_json('pipeline')
+    try:
+        pipeline = _get_json('pipeline', [])
+    except ValueError:
+        bottle.abort(400, "The 'pipeline' parameter must be valid json.")
+
+    if not isinstance(pipeline, list):
+        bottle.abort(400, "The 'pipeline' parameter must be a valid json array.")
+
     # Should this go in the _filter_aggregate?
     # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
@@ -197,11 +204,30 @@ def get_aggregate(mongodb, collection):
 
 @app.route('/<collection>', method=['GET'])
 def get(mongodb, collection):
-    filter_ = _get_json('filter')
-    projection = _get_json('projection')
-    skip = int(bottle.request.query.get('skip', 0))
-    limit = int(bottle.request.query.get('limit', 100))
-    sort = _get_json('sort')
+    try:
+        filter_ = _get_json('filter')
+    except ValueError:
+        bottle.abort(400, "Parameter 'filter' must be valid json.")
+
+    try:
+        projection = _get_json('projection')
+    except ValueError:
+        bottle.abort(400, "Parameter 'projection' must be valid json.")
+
+    try:
+        skip = int(bottle.request.query.get('skip', 0))
+    except ValueError:
+        bottle.abort(400, "Parameter 'skip' must be an integer.")
+
+    try:
+        limit = int(bottle.request.query.get('limit', 100))
+    except ValueError:
+        bottle.abort(400, "Parameter 'limit' must be an integer.")
+
+    try:
+        sort = _get_json('sort')
+    except ValueError:
+        bottle.abort(400, "Parameter 'sort' must be valid json.")
 
     # Turns a list of lists to a list of tuples.
     # This is necessary because JSON has no concept of "tuple" but pymongo
