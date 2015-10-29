@@ -214,8 +214,15 @@ def get(mongodb, collection):
     except ValueError:
         bottle.abort(400, "Parameter 'projection' must be valid json.")
 
-    skip = int(bottle.request.query.get('skip', 0))
-    limit = int(bottle.request.query.get('limit', 100))
+    try:
+        skip = int(bottle.request.query.get('skip', 0))
+    except ValueError:
+        bottle.abort(400, "Parameter 'skip' must be an integer.")
+
+    try:
+        limit = int(bottle.request.query.get('limit', 100))
+    except ValueError:
+        bottle.abort(400, "Parameter 'limit' must be an integer.")
 
     try:
         sort = _get_json('sort')
