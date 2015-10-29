@@ -246,6 +246,14 @@ def post(mongodb, collection):
         if _filter_write(mongodb, json_):
             object_id = mongodb[collection].insert(json_)
             return {'success': list(mongodb[collection].find({"_id": object_id}))}
+        else:
+            bottle.abort(400,
+                         "This kala instance is configured with a write filter, "
+                         "and the provided document did not satisfy it. "
+                         "The document must be selectable by: " +
+                         app.config['filter.write'])
+    else:
+        bottle.abort(403, "This kala instance is not configured to allow writing.")
 
 
 def main():
