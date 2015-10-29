@@ -155,3 +155,8 @@ Session.vim
 *~
 
 
+### Kala specific
+
+# Settings files
+settings.ini
+filter.JSON
