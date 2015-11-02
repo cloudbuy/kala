@@ -107,9 +107,9 @@ def _filter_write(mongodb, document):
 
 
 def _respects_whitelist(document):
-    """Returns True when the document is acceptable to the filter, otherwise False"""
+    """Returns True when the document is acceptable to the whitelist, otherwise False"""
     whitelist = app.config['filter.fields']
-    """This is used to filter the JSON object."""
+    # This is used to filter the JSON object.
     if whitelist is None:
         return True
     # When document is a dictionary, delete any keys which are not in the
