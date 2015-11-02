@@ -65,9 +65,11 @@ if os.environ.get('KALA_FILTER_WRITE'):
     app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
     app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
 
-if os.environ.get('KALA_FILTER_READ'):
+if os.environ.get('KALA_FILTER_READ', app.config['filter.read']) == 'True':
     app.config['filter.read'] = True
     app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
+elif os.environ.get('KALA_FILTER_READ', app.config['filter.read']):
+    app.config['filter.read'] = False
 
 if app.config['filter.write'] == 'True':
     with open(app.config['filter.json'], 'r') as data_file:
@@ -90,9 +92,9 @@ if app.config['cors.enable']:
     app.install(EnableCors())
 
 
-def _get_json(name):
+def _get_json(name, default=None):
     result = bottle.request.query.get(name)
-    return json.loads(result) if result else None
+    return json.loads(result) if result else default
 
 
 def _filter_write(mongodb, document):
@@ -106,21 +108,27 @@ def _filter_write(mongodb, document):
     return any(doc['_id'] == object_id for doc in documents)
 
 
-def _filter_read(document):
-    """This is used to filter the JSON object."""
+def _respects_whitelist(document):
+    """Returns True when the document is acceptable to the whitelist, otherwise False"""
     whitelist = app.config['filter.fields']
+    # This is used to filter the JSON object.
     if whitelist is None:
-        return document
+        return True
     # When document is a dictionary, delete any keys which are not in the
     # whitelist, unless they are an operator, in which case we apply the filter to the value.
     if isinstance(document, dict):
-        document = dict((key, value) for (key, value) in document.items() if key in whitelist or key.startswith('$'))
+        if any(key not in whitelist for (key, value) in document.items()):
+            return False
         for key in document.keys():
             if key.startswith('$'):
-                document[key] = _filter_read(document[key])
+                if not _respects_whitelist(document[key]):
+                    return False
+            elif key not in whitelist:
+                return False
+        return True
     # When document is a list, apply the filter on each item, thus returning a filtered list.
     elif isinstance(document, list):
-        document = [_filter_read(item) for item in document]
+        return all(_respects_whitelist(item) for item in document)
     # When document is a tuple, return whether first element is in the whitelist.
     # This is used for sort
     elif isinstance(document, tuple):
@@ -128,8 +136,8 @@ def _filter_read(document):
     # This is used for projection.
     # Note that a JSON object can not contain null values.
     elif document is None:
-        document = dict((key, '1') for key in whitelist)
-    return document
+        return True
+    return True
 
 
 def _filter_aggregate(list_):
@@ -143,6 +151,13 @@ def _filter_aggregate(list_):
     project = {'$project': dict((field, 1) for field in app.config['filter.fields'])}
     list_ = [project] + list_
     return list_
+
+
+def _filter_read(document):
+    """Ensures that the empty or None document does not give results outside the filter"""
+    if isinstance(document, dict) and not document.keys or document is None:
+        document = dict((field, 1) for field in app.config['filter.fields'])
+    return document
 
 
 def _convert_object_type(document, type_):
@@ -182,26 +197,56 @@ def _convert_object(document):
 
 @app.route('/aggregate/<collection>', method=['GET'])
 def get_aggregate(mongodb, collection):
-    pipeline = _get_json('pipeline')
+    try:
+        pipeline = _get_json('pipeline', [])
+    except ValueError:
+        bottle.abort(400, "The 'pipeline' parameter must be valid json.")
+
+    if not isinstance(pipeline, list):
+        bottle.abort(400, "The 'pipeline' parameter must be a valid json array.")
+
     # Should this go in the _filter_aggregate?
     # It's also probably overkill, since $out must be the last item in the pipeline.
-    pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary) if pipeline else None
+    pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary)
     if app.config['filter.read']:
-        pipeline = _filter_aggregate(pipeline) if pipeline else None
-    pipeline = _convert_object(pipeline) if pipeline else None
+        if not _respects_whitelist(pipeline):
+            bottle.abort(400, "This kala instance is configured with a read filter. "
+                              "You may only reference the fields: "
+                              ", ".join(app.config['filter.fields']))
+        pipeline = _filter_aggregate(pipeline)
+    pipeline = _convert_object(pipeline)
     limit = int(bottle.request.query.get('limit', 100))
-    pipeline = pipeline + [{'$limit': limit}] if pipeline else None
+    pipeline = pipeline + [{'$limit': limit}]
     cursor = mongodb[collection].aggregate(pipeline=pipeline)
     return {'results': [document for document in cursor]}
 
 
 @app.route('/<collection>', method=['GET'])
 def get(mongodb, collection):
-    filter_ = _get_json('filter')
-    projection = _get_json('projection')
-    skip = int(bottle.request.query.get('skip', 0))
-    limit = int(bottle.request.query.get('limit', 100))
-    sort = _get_json('sort')
+    try:
+        filter_ = _get_json('filter')
+    except ValueError:
+        bottle.abort(400, "Parameter 'filter' must be valid json.")
+
+    try:
+        projection = _get_json('projection')
+    except ValueError:
+        bottle.abort(400, "Parameter 'projection' must be valid json.")
+
+    try:
+        skip = int(bottle.request.query.get('skip', 0))
+    except ValueError:
+        bottle.abort(400, "Parameter 'skip' must be an integer.")
+
+    try:
+        limit = int(bottle.request.query.get('limit', 100))
+    except ValueError:
+        bottle.abort(400, "Parameter 'limit' must be an integer.")
+
+    try:
+        sort = _get_json('sort')
+    except ValueError:
+        bottle.abort(400, "Parameter 'sort' must be valid json.")
 
     # Turns a list of lists to a list of tuples.
     # This is necessary because JSON has no concept of "tuple" but pymongo
@@ -213,12 +258,21 @@ def get(mongodb, collection):
     # We use a whitelist read setting to filter what is allowed to be read from the collection.
     # If the whitelist read setting is empty or non existent, then nothing is filtered.
     if app.config['filter.read']:
-        filter_ = _filter_read(filter_) if filter_ else None
+        if not _respects_whitelist(filter_):
+            bottle.abort(400, "The 'filter' parameter references a disallowed field. "
+                              "Permitted fields are " + ", ".join(app.config['filter.fields']))
         # Filter must be applied to projection, this is to prevent unrestricted reads.
         # If it is empty, we fill it with only whitelisted values.
         # Else we remove values which are not whitelisted.
+        if not _respects_whitelist(projection):
+            bottle.abort(400, "The 'projection' parameter references a disallowed field. "
+                              "Permitted fields are " + ", ".join(app.config['filter.fields']))
+        if not _respects_whitelist(sort):
+            bottle.abort(400, "The 'sort' parameter references a disallowed field. "
+                              "Permitted fields are " + ", ".join(app.config['filter.fields']))
+
+		# If projection is None or empty, project the whitelist.
         projection = _filter_read(projection)
-        sort = _filter_read(sort) if sort else None
 
     cursor = mongodb[collection].find(
         filter=filter_, projection=projection, skip=skip, limit=limit,
@@ -246,6 +300,14 @@ def post(mongodb, collection):
         if _filter_write(mongodb, json_):
             object_id = mongodb[collection].insert(json_)
             return {'success': list(mongodb[collection].find({"_id": object_id}))}
+        else:
+            bottle.abort(400,
+                         "This kala instance is configured with a write filter, "
+                         "and the provided document did not satisfy it. "
+                         "The document must be selectable by: " +
+                         json.dumps(app.config['filter.json']))
+    else:
+        bottle.abort(403, "This kala instance is not configured to allow writing.")
 
 
 def main():
