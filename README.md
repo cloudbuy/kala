@@ -30,11 +30,15 @@ writing and provide a filter JSON document as well as a staging table for the fi
 
 ### Why wouldn't I just use SleepyMongoose? (https://github.com/10gen-labs/sleepy.mongoose/wiki)
 
-You probably should, if you want a REST API to enable full CRUD against a mongoDB server.  As far as I can tell there's no way to lock sleepy.mongoose down so as to only allow reads and only allow a particular database, which is what this is designed to do.
+You probably should, if you want a REST API to enable full CRUD against a
+mongoDB server.  As far as I can tell there's no way to lock sleepy.mongoose
+down so as to only allow reads and only allow a particular database, which is
+what this is designed to do.
 
 ### Why didn't you fork SleepyMongoose to add that feature then?
 
-I could have done, but that seemed like considerably more effort than the tiny bottle app here.
+I could have done, but that seemed like considerably more effort than the
+tiny bottle app here.
 
 ### Why is it called Kala?
 
