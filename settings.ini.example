@@ -2,6 +2,9 @@
 uri = mongodb://localhost:27017/
 db = kala
 
+[cors]
+enable = True
+
 [filter]
 write = True
 read = True
