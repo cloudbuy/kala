@@ -60,7 +60,7 @@ app.config.update({
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
-if os.environ.get('KALA_FILTER_WRITE'):
+if os.environ.get('KALA_FILTER_WRITE', app.config['filter.write']):
     app.config['filter.write'] = True
     app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
     app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
