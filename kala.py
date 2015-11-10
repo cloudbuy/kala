@@ -51,7 +51,7 @@ app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
     'cors.enable': False,
-    'filter.read': True,
+    'filter.read': False,
     'filter.write': False,
     'filter.staging': 'staging',
     'filter.fields': ['_id'],
@@ -60,18 +60,16 @@ app.config.update({
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
-if os.environ.get('KALA_FILTER_WRITE'):
+if os.environ.get('KALA_FILTER_WRITE', app.config['filter.write']):
     app.config['filter.write'] = True
     app.config['filter.json'] = os.environ.get('KALA_FILTER_JSON', app.config['filter.json'])
     app.config['filter.staging'] = os.environ.get('KALA_FILTER_STAGING', app.config['filter.staging'])
 
-if os.environ.get('KALA_FILTER_READ', app.config['filter.read']) == 'True':
+if os.environ.get('KALA_FILTER_READ', app.config['filter.read']):
     app.config['filter.read'] = True
     app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
-elif os.environ.get('KALA_FILTER_READ', app.config['filter.read']):
-    app.config['filter.read'] = False
 
-if app.config['filter.write'] == 'True':
+if app.config['filter.write']:
     with open(app.config['filter.json'], 'r') as data_file:
         app.config['filter.json'] = json.load(data_file)
 
