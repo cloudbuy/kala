@@ -69,7 +69,7 @@ if os.environ.get('KALA_FILTER_READ', app.config['filter.read']):
     app.config['filter.read'] = True
     app.config['filter.fields'] = os.environ.get('KALA_FILTER_FIELDS', app.config['filter.fields'])
 
-if app.config['filter.write'] == 'True':
+if app.config['filter.write']:
     with open(app.config['filter.json'], 'r') as data_file:
         app.config['filter.json'] = json.load(data_file)
 
