@@ -51,7 +51,7 @@ app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
     'cors.enable': False,
-    'filter.read': True,
+    'filter.read': False,
     'filter.write': False,
     'filter.staging': 'staging',
     'filter.fields': ['_id'],
