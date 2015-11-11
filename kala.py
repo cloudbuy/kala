@@ -24,6 +24,12 @@ CORS_HEADERS = {
 }
 
 
+try:
+    unicode
+except NameError:
+    unicode = str
+
+
 # Code from stackoverflow.com
 # Question at http://stackoverflow.com/questions/17262170/bottle-py-enabling-cors-for-jquery-ajax-requests
 # Thanks to asker http://stackoverflow.com/users/552894/joern
@@ -170,7 +176,7 @@ def _convert_object_type(document, type_):
             document[k] = _convert_object_type(v, type_)
     if isinstance(document, list):
         document = [_convert_object_type(item, type_) for item in document]
-    elif isinstance(document, (str, bytes)):
+    elif isinstance(document, (unicode, bytes)):
         try:
             if type_ == 'ISODate':
                 return datetime.datetime.strptime(document, '%Y-%m-%dT%H:%M:%S.%fZ')
