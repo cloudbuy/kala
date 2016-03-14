@@ -73,6 +73,9 @@ def get(mongodb, collection):
     if distinct:
         return {'values': cursor.distinct(distinct)}
 
+    if bottle.request.query.get('count'):
+        return {'count': cursor.count()}
+
     return {'results': [document for document in cursor]}
 
 
