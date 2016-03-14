@@ -8,7 +8,7 @@ requires = [
 
 setup(
     name='kala',
-    version='0.4',
+    version='0.5',
     packages=[''],
     url='https://github.com/cloudbuy/kala',
     license='MIT',
