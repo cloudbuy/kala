@@ -2,7 +2,7 @@ from setuptools import setup
 
 requires = [
     'bottle',
-    'bottle_mongodb',
+    'bottle_mongo',
     'pymongo'
 ]
 
