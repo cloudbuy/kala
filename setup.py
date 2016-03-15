@@ -2,13 +2,13 @@ from setuptools import setup
 
 requires = [
     'bottle',
-    'bottle_mongodb',
+    'bottle_mongo',
     'pymongo'
 ]
 
 setup(
     name='kala',
-    version='0.5',
+    version='0.5.1',
     packages=[''],
     url='https://github.com/cloudbuy/kala',
     license='MIT',
