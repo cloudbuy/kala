@@ -2,6 +2,7 @@
 
 import os
 import json
+import pkg_resources
 
 import bottle
 from bottle_mongo import MongoPlugin
@@ -27,7 +28,8 @@ app = bottle.Bottle()
 app.config.update({
     'mongodb.uri': 'mongodb://localhost:27017/',
     'mongodb.db': 'kala',
-    'cors.enable': False
+    'cors.enable': False,
+    'status.enable': False
 })
 
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
@@ -77,6 +79,25 @@ def get(mongodb, collection):
         return {'count': cursor.count()}
 
     return {'results': [document for document in cursor]}
+
+@app.route('/_status')
+def status(mongodb):
+    if os.environ.get('KALA_STATUS_ENABLE', app.config['status.enable']) in (False, '0'):
+        raise bottle.HTTPError(status=403)
+
+    try:
+        # Try and load the version from the installed version
+        version = pkg_resources.get_distribution('kala').version
+    except pkg_resources.DistributionNotFound:
+        # If kala isn't installed, make some (probably poor) assumptions about how it is running
+        try:
+            pkg_info_path = os.path.join(os.path.dirname(__file__), 'kala.egg-info', 'PKG-INFO')
+            pkg_metadata = pkg_resources.FileMetadata(pkg_info_path)
+            version = pkg_resources.Distribution(os.path.dirname(__file__), metadata, 'kala').version
+        except:
+            version = 'unknown'
+
+    return {'version': version}
 
 
 def main():
