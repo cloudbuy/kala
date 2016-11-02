@@ -13,6 +13,14 @@ app.config.update({
     'mongodb.db': 'kala'
 })
 
+sentry_dsn = os.environ.get('KALA_SENTRY_DSN', app.config.get('sentry.dsn'))
+if sentry_dsn:
+    from raven import Client
+    from raven.contrib.bottle import Sentry
+    client = Client(sentry_dsn)
+    app.catchall = False
+    app = Sentry(app, client)
+
 app.config.load_config(os.environ.get('KALA_CONFIGFILE', 'settings.ini'))
 
 app.install(MongoPlugin(
