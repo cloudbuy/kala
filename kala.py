@@ -221,10 +221,6 @@ def get_aggregate(mongodb, collection):
     # It's also probably overkill, since $out must be the last item in the pipeline.
     pipeline = list(dictionary for dictionary in pipeline if "$out" not in dictionary)
     if app.config['filter.read']:
-        if not _respects_whitelist(pipeline):
-            bottle.abort(400, "This kala instance is configured with a read filter. "
-                              "You may only reference the fields: "
-                              ", ".join(app.config['filter.fields']))
         pipeline = _filter_aggregate(pipeline)
     pipeline = _convert_object(pipeline)
     limit = int(bottle.request.query.get('limit', 100))
