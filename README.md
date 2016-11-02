@@ -36,6 +36,10 @@ data to be written, it must be writeable to the staging table, and then appear
 in the results when the filter document is applied. Environment variables for
 this are `KALA_FILTER_WRITE`, `KALA_FILTER_JSON`, and `KALA_FILTER_STAGING`.
 
+### What if I want to use Sentry for exceptions?
+
+Feel free, simply set in the configuration (either via the `KALA_SENTRY_DSN` environment variable, or the `sentry.dsn` option in the config file) and then install the `raven` client library by whichever means you desire.
+
 ### Why wouldn't I just use SleepyMongoose? (https://github.com/10gen-labs/sleepy.mongoose/wiki)
 
 You probably should, if you want a REST API to enable full CRUD against a
